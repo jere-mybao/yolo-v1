@@ -1,0 +1,32 @@
+data:
+  csv_file_train: "data/train.csv"
+  csv_file_test: "data/test.csv"
+  img_dir: "data/images"
+  label_dir: "data/labels"
+  additional_transform_train: True
+  additional_transform_test: False
+
+model:
+  grid_size: 7
+  num_bboxes: 2
+  num_classes: 20
+
+training:
+  epochs: 200
+  batch_size: 4
+  nworkers: 2
+  accumulation_steps: 16
+  iou_threshold: 0.5
+  threshold: 0.4
+
+optimizer:
+  learning_rate: 0.0001
+  weight_decay: 0.0005
+  lr_scheduler:
+    original: False
+    conservative: True
+
+wandb:
+  project: "yolo-v1"
+  name: "yolo-v1-pascal-voc"
+  enabled: True
