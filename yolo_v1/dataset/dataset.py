@@ -2,7 +2,24 @@ import torch
 import pandas as pd
 from PIL import Image
 import os
-from utils.utils import transform_image, transform_bboxes
+import torchvision.transforms as T
+from yolo_v1.utils.utils import transform_image, transform_bboxes
+
+class Compose(object):
+    def __init__(self, transforms):
+        self.transforms = transforms
+        
+    def __call__(self, img, bboxes):
+        for t in self.transforms:
+            img, bboxes = t(img), bboxes
+        return img, bboxes
+    
+train_transform = Compose([T.Resize((448, 448)),
+            T.ColorJitter(brightness=[0,1.5], saturation=[0,1.5]),
+            T.ToTensor()])
+
+test_transform = Compose([T.Resize((448, 448)),
+            T.ToTensor()])
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, csv_file, img_dir, label_dir, grid_size=7, num_bboxes=2, num_classes=20, transform=None, additional_transform=None):
@@ -12,8 +29,11 @@ class Dataset(torch.utils.data.Dataset):
         self.grid_size = grid_size
         self.num_bboxes = num_bboxes
         self.num_classes = num_classes
-        self.transform = transform
         self.additional_transform = additional_transform
+        if self.additional_transform:
+            self.transform = train_transform
+        else:
+            self.transform = test_transform
 
     def __len__(self):
         return len(self.annotations)

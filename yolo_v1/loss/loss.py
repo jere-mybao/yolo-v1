@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.utils import iou
+from yolo_v1.utils.utils import iou
 
 class YoloV1Loss(nn.Module):
     def __init__(self, grid_size = 7, num_bboxes = 2, num_classes = 20):
