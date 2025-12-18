@@ -187,6 +187,12 @@ def main():
             step=epoch + 1,
         )
 
+        if config["training"]["save_model"] and ( (epoch + 1 ) % 2) == 0 or epoch == epochs - 1 :
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+                }, config["training"]["path_cpt_file"])
 
 if __name__ == "__main__":
     main()
