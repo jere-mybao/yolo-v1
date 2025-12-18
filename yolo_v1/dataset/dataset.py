@@ -68,6 +68,8 @@ class Dataset(torch.utils.data.Dataset):
             cell_y, cell_x = int(self.grid_size * y), int(self.grid_size * x)
             x_in_cell, y_in_cell = self.grid_size * x - cell_x, self.grid_size * y - cell_y
 
+            width, height = (width * self.grid_size, height * self.grid_size,)
+
             if target_matrix[cell_y, cell_x, 20] == 0:
                 target_matrix[cell_y, cell_x, 20] = 1
                 bbox_coordinates = torch.tensor([x_in_cell, y_in_cell, width, height])
