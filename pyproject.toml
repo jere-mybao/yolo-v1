@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yolo_v1"
+version = "0.0.1"
+dependencies = [
+    "torch",
+    "torchvision",
+    "opencv-python",
+    "numpy",
+    "albumentations",
+    "tqdm",
+    "pandas",
+    "Pillow",
+]
+
+[tool.setuptools.packages]
+find = {"where" = ["."], "include" = ["yolo_v1", "yolo_v1.*"]}
+
