@@ -242,6 +242,9 @@ def prepare_data_yaml(class_path, yaml_path):
 
 prepare_data_yaml(CLASSES_PATH, YAML_PATH)
 
+#optimized training
+!yolo detect train model=yolo11l.pt data=/content/data.yaml epochs=50 imgsz=640 batch=8 lr0=0.001 optimizer=SGD momentum=0.9 weight_decay=0.0005 seed=123
+
 # train yolo model
 !yolo detect train model=yolo11l.pt data=/content/data.yaml epochs=50 imgsz=640
 
@@ -301,31 +304,38 @@ if pred_run:
         display(Image(filename=image_path, height=600))
         print("\n")
 
+import os, glob
+import pandas as pd
+from ultralytics import YOLO
+from IPython.display import Image, display
+
 # calorie estimation
 calories = {
-    "milano cookie": 65,      # per cookie
-    "oreo": 70,               # per cookie
-    "popcorn": 2.25,          # per one popcorn
-    "pretzel crisp": 10,      # per crisp
-    "roasted chestnut": 20,   # per chestnut
-    "sour patch kid": 9,      # per candy
-    "swedish fish": 22        # per candy
+    "milano cookie": 65,
+    "oreo": 70,
+    "popcorn": 2.25,
+    "pretzel crisp": 10,
+    "roasted chestnut": 20,
+    "sour patch kid": 9,
+    "swedish fish": 22
 }
 
-from ultralytics import YOLO
+rows = []
 
 if best_pt and os.path.exists(best_pt):
     model = YOLO(best_pt)
 
     eval_dir = f"/content/data/{EVAL_SPLIT_FOR_CALORIES}/images"
-    image_paths = sorted(glob.glob(os.path.join(eval_dir, "*.jpg")) +
-                         glob.glob(os.path.join(eval_dir, "*.jpeg")) +
-                         glob.glob(os.path.join(eval_dir, "*.png")))
+    image_paths = sorted(
+        glob.glob(os.path.join(eval_dir, "*.jpg")) +
+        glob.glob(os.path.join(eval_dir, "*.jpeg")) +
+        glob.glob(os.path.join(eval_dir, "*.png"))
+    )
 
     print(f"Total {EVAL_SPLIT_FOR_CALORIES} images: {len(image_paths)}")
 
     for img_path in image_paths:
-        results = model(img_path)[0]
+        results = model(img_path, verbose=False)[0]
 
         item_counts = {}
         for box in results.boxes:
@@ -342,6 +352,11 @@ if best_pt and os.path.exists(best_pt):
             total_cal += item_cal
             per_item_info.append(f"{item}: {count} × {calories[item]} = {item_cal} cal")
 
+        rows.append({
+            "image": os.path.basename(img_path),
+            "total_calories": total_cal
+        })
+
         print(f"\nImage: {os.path.basename(img_path)}")
         display(Image(filename=img_path, width=500))
 
@@ -352,5 +367,13 @@ if best_pt and os.path.exists(best_pt):
             print(f"Total calories: {total_cal} cal")
         else:
             print("No calorie-mapped items detected.")
+
+    df = pd.DataFrame(rows)
+    out_csv = f"/content/{EVAL_SPLIT_FOR_CALORIES}_calorie_estimates.csv"
+    df.to_csv(out_csv, index=False)
+
+    print("\nSaved CSV to:", out_csv)
+    df.head()
+
 else:
     print("Could not find best.pt for calorie demo.")
