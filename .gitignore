@@ -1,4 +1,5 @@
-data/
+data/images
+data/labels/
 __pycache__/
 yolo_v1.egg-info/
 wandb/
