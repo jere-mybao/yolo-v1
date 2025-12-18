@@ -5,6 +5,7 @@ from PIL import Image
 from collections import Counter
 from typing import Tuple, Sequence
 
+
 def iou(bboxes_pred: torch.Tensor, bboxes_gt: torch.Tensor) -> torch.Tensor:
     """
     Input: bboxes_pred, bboxes_gt.
@@ -36,7 +37,10 @@ def iou(bboxes_pred: torch.Tensor, bboxes_gt: torch.Tensor) -> torch.Tensor:
 
     return intersection / union
 
-def transform_image(image: Image.Image, factor: float = 20.0) -> Tuple[Image.Image, np.ndarray]:
+
+def transform_image(
+    image: Image.Image, factor: float = 20.0
+) -> Tuple[Image.Image, np.ndarray]:
     """
     Input: image.
     Output: transformed image.
@@ -63,24 +67,39 @@ def transform_image(image: Image.Image, factor: float = 20.0) -> Tuple[Image.Ima
 
     translation_matrix = np.float32([[1, 0, translate_x], [0, 1, translate_y]])
 
-    scaled_image_content = cv.resize(img_array, (scaled_width, scaled_height), interpolation=cv.INTER_CUBIC)
+    scaled_image_content = cv.resize(
+        img_array, (scaled_width, scaled_height), interpolation=cv.INTER_CUBIC
+    )
 
     padded_image = np.zeros(shape=[original_height, original_width, 3], dtype=np.uint8)
     offset_y = round((original_height - scaled_height) / 2)
     offset_x = round((original_width - scaled_width) / 2)
-    padded_image[offset_y:offset_y + scaled_height, offset_x:offset_x + scaled_width] = scaled_image_content
+    padded_image[
+        offset_y : offset_y + scaled_height, offset_x : offset_x + scaled_width
+    ] = scaled_image_content
 
-    transformed_image_cv = cv.warpAffine(padded_image, translation_matrix, (original_width, original_height))
-    transformed_image_pil = Image.fromarray(cv.cvtColor(transformed_image_cv, cv.COLOR_BGR2RGB))
+    transformed_image_cv = cv.warpAffine(
+        padded_image, translation_matrix, (original_width, original_height)
+    )
+    transformed_image_pil = Image.fromarray(
+        cv.cvtColor(transformed_image_cv, cv.COLOR_BGR2RGB)
+    )
 
-    transform_params = np.array([[original_height, original_width],
-                                 [translate_x, translate_y],
-                                 [offset_x, offset_y],
-                                 [scale_ratio_x, scale_ratio_y]])
+    transform_params = np.array(
+        [
+            [original_height, original_width],
+            [translate_x, translate_y],
+            [offset_x, offset_y],
+            [scale_ratio_x, scale_ratio_y],
+        ]
+    )
 
     return transformed_image_pil, transform_params
 
-def transform_bboxes(bboxes: Sequence[Sequence[float]], transform_params: np.ndarray) -> np.ndarray:
+
+def transform_bboxes(
+    bboxes: Sequence[Sequence[float]], transform_params: np.ndarray
+) -> np.ndarray:
     image_height, image_width = transform_params[0]
     translate_x, translate_y = transform_params[1]
     offset_x, offset_y = transform_params[2]
@@ -91,7 +110,9 @@ def transform_bboxes(bboxes: Sequence[Sequence[float]], transform_params: np.nda
 
     coords = bboxes_array[:, 1:5]
     if coords.shape[1] != 4:
-        raise ValueError(f"Expected 4 bbox values (x, y, w, h). Got {coords.shape[1]} bbox values.")
+        raise ValueError(
+            f"Expected 4 bbox values (x, y, w, h). Got {coords.shape[1]} bbox values."
+        )
 
     x = (coords[:, 0] * scale_x) + (offset_x + translate_x) / image_width
     y = (coords[:, 1] * scale_y) + (offset_y + translate_y) / image_height
@@ -105,7 +126,13 @@ def transform_bboxes(bboxes: Sequence[Sequence[float]], transform_params: np.nda
 
     return transformed
 
-def mAP(predictions: Sequence[Sequence[float]], targets: Sequence[Sequence[float]], iou_threshold: float = 0.5, num_classes: int = 20) -> torch.Tensor:
+
+def mAP(
+    predictions: Sequence[Sequence[float]],
+    targets: Sequence[Sequence[float]],
+    iou_threshold: float = 0.5,
+    num_classes: int = 20,
+) -> torch.Tensor:
     """
     Input: predictions, targets, iou_threshold, num_classes.
     Output: mAP.
@@ -136,7 +163,7 @@ def mAP(predictions: Sequence[Sequence[float]], targets: Sequence[Sequence[float
             for idx, gt in enumerate(gt_for_img):
                 current_iou = iou(
                     bboxes_pred=torch.unsqueeze(torch.tensor(detection[3:]), 0),
-                    bboxes_gt=torch.unsqueeze(torch.tensor(gt[3:]), 0)
+                    bboxes_gt=torch.unsqueeze(torch.tensor(gt[3:]), 0),
                 ).item()
 
                 if current_iou > best_iou:
@@ -166,7 +193,13 @@ def mAP(predictions: Sequence[Sequence[float]], targets: Sequence[Sequence[float
     return sum(average_precisions) / len(average_precisions)
 
 
-def get_bboxes(loader: torch.utils.data.DataLoader, model: torch.nn.Module, iou_threshold: float, threshold: float, device: str = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[list[list[float]], list[list[float]]]:
+def get_bboxes(
+    loader: torch.utils.data.DataLoader,
+    model: torch.nn.Module,
+    iou_threshold: float,
+    threshold: float,
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+) -> Tuple[list[list[float]], list[list[float]]]:
     """
     Input: loader, model, iou_threshold, threshold, device.
     Output: all_predicted_boxes, all_true_boxes.
@@ -175,7 +208,7 @@ def get_bboxes(loader: torch.utils.data.DataLoader, model: torch.nn.Module, iou_
     all_true_boxes = []
 
     model.eval()
-    image_idx_counter = 0 
+    image_idx_counter = 0
 
     for batch_idx, (image_batch, label_batch) in enumerate(loader):
         image_batch = image_batch.to(device)
@@ -186,11 +219,15 @@ def get_bboxes(loader: torch.utils.data.DataLoader, model: torch.nn.Module, iou_
 
         batch_size = image_batch.shape[0]
 
-        true_bboxes_batch = cells_to_boxes(label_batch) 
-        predicted_bboxes_batch = cells_to_boxes(model_predictions) 
+        true_bboxes_batch = cells_to_boxes(label_batch)
+        predicted_bboxes_batch = cells_to_boxes(model_predictions)
 
         for i in range(batch_size):
-            nms_processed_boxes = nms(predicted_bboxes_batch[i], iou_threshold=iou_threshold, threshold=threshold)
+            nms_processed_boxes = nms(
+                predicted_bboxes_batch[i],
+                iou_threshold=iou_threshold,
+                threshold=threshold,
+            )
 
             for nms_box in nms_processed_boxes:
                 all_predicted_boxes.append([image_idx_counter] + nms_box)
@@ -200,10 +237,13 @@ def get_bboxes(loader: torch.utils.data.DataLoader, model: torch.nn.Module, iou_
                     all_true_boxes.append([image_idx_counter] + true_box)
 
             image_idx_counter += 1
- 
+
     return all_predicted_boxes, all_true_boxes
 
-def nms(bboxes: Sequence[Sequence[float]], iou_threshold: float, threshold: float) -> Sequence[Sequence[float]]:
+
+def nms(
+    bboxes: Sequence[Sequence[float]], iou_threshold: float, threshold: float
+) -> Sequence[Sequence[float]]:
     """
     Input: bboxes, iou_threshold, threshold.
     Output: bboxes_after_nms.
@@ -224,10 +264,12 @@ def nms(bboxes: Sequence[Sequence[float]], iou_threshold: float, threshold: floa
             box
             for box in filtered_bboxes
             if box[0] != chosen_box[0]  # Different class
-            or iou(torch.tensor(chosen_box[2:]), torch.tensor(box[2:])).item() < iou_threshold
+            or iou(torch.tensor(chosen_box[2:]), torch.tensor(box[2:])).item()
+            < iou_threshold
         ]
 
     return bboxes_after_nms
+
 
 def convert_cells(predictions: torch.Tensor, grid_size: int = 7) -> torch.Tensor:
     """
@@ -238,20 +280,31 @@ def convert_cells(predictions: torch.Tensor, grid_size: int = 7) -> torch.Tensor
     batch_size = predictions.shape[0]
     predictions = predictions.reshape(batch_size, grid_size, grid_size, -1)
 
-    bbox1_coords = predictions[..., 21:25] 
-    bbox2_coords = predictions[..., 26:30] 
+    bbox1_coords = predictions[..., 21:25]
+    bbox2_coords = predictions[..., 26:30]
 
-    bbox1_confidence = predictions[..., 20].unsqueeze(-1) 
+    bbox1_confidence = predictions[..., 20].unsqueeze(-1)
     bbox2_confidence = predictions[..., 25].unsqueeze(-1)
 
     stacked_confidences = torch.cat((bbox1_confidence, bbox2_confidence), dim=-1)
     best_bbox_selector = stacked_confidences.argmax(dim=-1, keepdim=True)
 
-    best_bboxes_coords = bbox1_coords * (1 - best_bbox_selector) + bbox2_coords * best_bbox_selector
-    best_bboxes_confidence = torch.max(bbox1_confidence, bbox2_confidence) 
+    best_bboxes_coords = (
+        bbox1_coords * (1 - best_bbox_selector) + bbox2_coords * best_bbox_selector
+    )
+    best_bboxes_confidence = torch.max(bbox1_confidence, bbox2_confidence)
 
-    cell_indices_x = torch.arange(grid_size, device=predictions.device).repeat(batch_size, grid_size, 1).unsqueeze(-1)
-    cell_indices_y = torch.arange(grid_size, device=predictions.device).repeat(batch_size, grid_size, 1).unsqueeze(-1).permute(0, 2, 1, 3)
+    cell_indices_x = (
+        torch.arange(grid_size, device=predictions.device)
+        .repeat(batch_size, grid_size, 1)
+        .unsqueeze(-1)
+    )
+    cell_indices_y = (
+        torch.arange(grid_size, device=predictions.device)
+        .repeat(batch_size, grid_size, 1)
+        .unsqueeze(-1)
+        .permute(0, 2, 1, 3)
+    )
 
     x_center = (1 / grid_size) * (best_bboxes_coords[..., :1] + cell_indices_x)
     y_center = (1 / grid_size) * (best_bboxes_coords[..., 1:2] + cell_indices_y)
@@ -268,12 +321,16 @@ def convert_cells(predictions: torch.Tensor, grid_size: int = 7) -> torch.Tensor
     return final_predictions
 
 
-def cells_to_boxes(model_output: torch.Tensor, grid_size: int = 7) -> list[list[list[float]]]:
+def cells_to_boxes(
+    model_output: torch.Tensor, grid_size: int = 7
+) -> list[list[list[float]]]:
     """
     Input: model_output, grid_size.
     Output: all_image_bboxes.
     """
-    converted_predictions = convert_cells(model_output, grid_size).reshape(model_output.shape[0], grid_size * grid_size, -1)
+    converted_predictions = convert_cells(model_output, grid_size).reshape(
+        model_output.shape[0], grid_size * grid_size, -1
+    )
     converted_predictions[..., 0] = converted_predictions[..., 0].long()
 
     all_image_bboxes = []
@@ -281,7 +338,9 @@ def cells_to_boxes(model_output: torch.Tensor, grid_size: int = 7) -> list[list[
     for img_idx in range(model_output.shape[0]):
         image_specific_bboxes = []
         for bbox_idx in range(grid_size * grid_size):
-            image_specific_bboxes.append([val.item() for val in converted_predictions[img_idx, bbox_idx, :]])
+            image_specific_bboxes.append(
+                [val.item() for val in converted_predictions[img_idx, bbox_idx, :]]
+            )
         all_image_bboxes.append(image_specific_bboxes)
 
     return all_image_bboxes

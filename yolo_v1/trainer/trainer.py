@@ -9,7 +9,7 @@ from yolo_v1.utils.utils import mAP, get_bboxes
 import wandb
 import yaml
 
-with open('yolo_v1/config/yolo_trainer.yaml', 'r') as f:
+with open("yolo_v1/config/yolo_trainer.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 if config["wandb"]["enabled"]:
@@ -32,7 +32,7 @@ lr_sched_conservative = config["optimizer"]["lr_scheduler"]["conservative"]
 
 
 def train(model, train_loader, optimizer, loss_fn):
-    accumulation_steps = config["training"]["accumulation_steps"] 
+    accumulation_steps = config["training"]["accumulation_steps"]
     total_loss = 0
     model.train()
     for batch_idx, (x, y) in enumerate(train_loader):
@@ -42,7 +42,9 @@ def train(model, train_loader, optimizer, loss_fn):
             loss = loss_fn(output, y)
             total_loss += loss.item()
             loss.backward()
-            if (batch_idx + 1) % accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
+            if (batch_idx + 1) % accumulation_steps == 0 or batch_idx == len(
+                train_loader
+            ) - 1:
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
     return float(total_loss / len(train_loader))
@@ -59,65 +61,132 @@ def test(model, test_loader, loss_fn):
             total_loss += loss.item()
     return float(total_loss / len(test_loader))
 
-def main():
-    train_dataset = Dataset(csv_file=config["data"]["csv_file_train"], img_dir=config["data"]["img_dir"], label_dir=config["data"]["label_dir"], grid_size=config["model"]["grid_size"], num_bboxes=config["model"]["num_bboxes"], num_classes=config["model"]["num_classes"], additional_transform=config["data"]["additional_transform_train"])
-    test_dataset = Dataset(csv_file=config["data"]["csv_file_test"], img_dir=config["data"]["img_dir"], label_dir=config["data"]["label_dir"], grid_size=config["model"]["grid_size"], num_bboxes=config["model"]["num_bboxes"], num_classes=config["model"]["num_classes"], additional_transform=config["data"]["additional_transform_test"])
-    
-    train_loader = DataLoader[Any](train_dataset, batch_size=batch_size, shuffle=True, num_workers=nworkers)
-    test_loader = DataLoader[Any](test_dataset, batch_size=batch_size, shuffle=False, num_workers=nworkers)
 
-    model = YoloV1_Resnet50(grid_size=config["model"]["grid_size"], num_bboxes=config["model"]["num_bboxes"], num_classes=config["model"]["num_classes"]).to(device)
+def main():
+    train_dataset = Dataset(
+        csv_file=config["data"]["csv_file_train"],
+        img_dir=config["data"]["img_dir"],
+        label_dir=config["data"]["label_dir"],
+        grid_size=config["model"]["grid_size"],
+        num_bboxes=config["model"]["num_bboxes"],
+        num_classes=config["model"]["num_classes"],
+        additional_transform=config["data"]["additional_transform_train"],
+    )
+    test_dataset = Dataset(
+        csv_file=config["data"]["csv_file_test"],
+        img_dir=config["data"]["img_dir"],
+        label_dir=config["data"]["label_dir"],
+        grid_size=config["model"]["grid_size"],
+        num_bboxes=config["model"]["num_bboxes"],
+        num_classes=config["model"]["num_classes"],
+        additional_transform=config["data"]["additional_transform_test"],
+    )
+
+    train_loader = DataLoader[Any](
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=nworkers
+    )
+    test_loader = DataLoader[Any](
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=nworkers
+    )
+
+    model = YoloV1_Resnet50(
+        grid_size=config["model"]["grid_size"],
+        num_bboxes=config["model"]["num_bboxes"],
+        num_classes=config["model"]["num_classes"],
+    ).to(device)
     if gpu_count > 1:
         model = torch.nn.DataParallel(model)
 
-    optimizer = Adam(model.parameters(), lr=config["optimizer"]["learning_rate"], weight_decay=weight_decay)
-    loss_fn = YoloV1Loss(grid_size=config["model"]["grid_size"], num_bboxes=config["model"]["num_bboxes"], num_classes=config["model"]["num_classes"])
+    optimizer = Adam(
+        model.parameters(),
+        lr=config["optimizer"]["learning_rate"],
+        weight_decay=weight_decay,
+    )
+    loss_fn = YoloV1Loss(
+        grid_size=config["model"]["grid_size"],
+        num_bboxes=config["model"]["num_bboxes"],
+        num_classes=config["model"]["num_classes"],
+    )
 
-    train_loss  = []
+    train_loss = []
     train_mAP = []
     test_loss = []
     test_mAP = []
 
     for epoch in range(epochs):
         torch.cuda.empty_cache()
-        if lr_sched_original == True:
+        if lr_sched_original:
             for g in optimizer.param_groups:
                 if epoch > 0 and epoch <= 5:
-                    g['lr'] = 0.001 + 0.0018 * epoch
-                if epoch <=80 and epoch > 5:
-                    g['lr'] = 0.01
+                    g["lr"] = 0.001 + 0.0018 * epoch
+                if epoch <= 80 and epoch > 5:
+                    g["lr"] = 0.01
                 if epoch <= 110 and epoch > 80:
-                    g['lr'] = 0.001
+                    g["lr"] = 0.001
                 if epoch > 110:
-                    g['lr'] = 0.00001
-        if lr_sched_conservative == True:
-             for g in optimizer.param_groups:
+                    g["lr"] = 0.00001
+        if lr_sched_conservative:
+            for g in optimizer.param_groups:
                 if epoch > 0 and epoch <= 5:
-                    g['lr'] = 0.00001 +(0.00009/5) * (epoch)
-                if epoch <=80 and epoch > 5:
-                    g['lr'] = 0.0001
+                    g["lr"] = 0.00001 + (0.00009 / 5) * (epoch)
+                if epoch <= 80 and epoch > 5:
+                    g["lr"] = 0.0001
                 if epoch <= 110 and epoch > 80:
-                    g['lr'] = 0.00001
+                    g["lr"] = 0.00001
                 if epoch > 110:
-                    g['lr'] = 0.000001
-                           
+                    g["lr"] = 0.000001
+
         train_loss_value = train(model, train_loader, optimizer, loss_fn)
         train_loss.append(train_loss_value)
 
         test_loss_value = test(model, test_loader, loss_fn)
         test_loss.append(test_loss_value)
 
-        pred_bbox, target_bbox = get_bboxes(train_loader, model, iou_threshold = config["training"]["iou_threshold"], threshold = config["training"]["threshold"])
-        test_pred_bbox, test_target_bbox = get_bboxes(test_loader, model, iou_threshold = config["training"]["iou_threshold"], threshold = config["training"]["threshold"])   
+        pred_bbox, target_bbox = get_bboxes(
+            train_loader,
+            model,
+            iou_threshold=config["training"]["iou_threshold"],
+            threshold=config["training"]["threshold"],
+        )
+        test_pred_bbox, test_target_bbox = get_bboxes(
+            test_loader,
+            model,
+            iou_threshold=config["training"]["iou_threshold"],
+            threshold=config["training"]["threshold"],
+        )
 
-        train_mAP_val = mAP(pred_bbox, target_bbox, iou_threshold = config["training"]["iou_threshold"])
-        test_mAP_val = mAP(test_pred_bbox, test_target_bbox, iou_threshold = config["training"]["iou_threshold"])
+        train_mAP_val = mAP(
+            pred_bbox, target_bbox, iou_threshold=config["training"]["iou_threshold"]
+        )
+        test_mAP_val = mAP(
+            test_pred_bbox,
+            test_target_bbox,
+            iou_threshold=config["training"]["iou_threshold"],
+        )
 
         train_mAP.append(train_mAP_val.item())
         test_mAP.append(test_mAP_val.item())
 
-        print({"train_loss": train_loss_value,"test_loss": test_loss_value,"train_mAP": train_mAP_val,"test_mAP": test_mAP_val,"lr": optimizer.param_groups[0]["lr"]})
-        wandb.log({"train_loss": train_loss_value,"test_loss": test_loss_value,"train_mAP": train_mAP_val,"test_mAP": test_mAP_val,"lr": optimizer.param_groups[0]["lr"]}, step=epoch + 1)
+        print(
+            {
+                "train_loss": train_loss_value,
+                "test_loss": test_loss_value,
+                "train_mAP": train_mAP_val,
+                "test_mAP": test_mAP_val,
+                "lr": optimizer.param_groups[0]["lr"],
+            }
+        )
+        wandb.log(
+            {
+                "train_loss": train_loss_value,
+                "test_loss": test_loss_value,
+                "train_mAP": train_mAP_val,
+                "test_mAP": test_mAP_val,
+                "lr": optimizer.param_groups[0]["lr"],
+            },
+            step=epoch + 1,
+        )
+
 
 if __name__ == "__main__":
     main()
