@@ -44,12 +44,12 @@ def transform_image(image: Image.Image, factor: float = 20.0) -> Tuple[Image.Ima
     img_array = cv.cvtColor(np.array(image), cv.COLOR_RGB2BGR)
     original_height, original_width = img_array.shape[:2]
 
-    scale_min_x = original_width * (1 - factor / 100)
-    scale_max_x = original_width
+    scale_min_x = int(original_width * (1 - factor / 100))
+    scale_max_x = int(original_width)
     scaled_width = np.random.randint(low=scale_min_x, high=scale_max_x)
 
-    scale_min_y = original_height * (1 - factor / 100)
-    scale_max_y = original_height
+    scale_min_y = int(original_height * (1 - factor / 100))
+    scale_max_y = int(original_height)
     scaled_height = np.random.randint(low=scale_min_y, high=scale_max_y)
 
     scale_ratio_x = scaled_width / original_width
@@ -135,8 +135,9 @@ def mAP(predictions: Sequence[Sequence[float]], targets: Sequence[Sequence[float
 
             for idx, gt in enumerate(gt_for_img):
                 current_iou = iou(
-                    bboxes_preds=torch.unsqueeze(torch.tensor(detection[3:]), 0),
-                    bboxes_gts=torch.unsqueeze(torch.tensor(gt[3:]), 0))
+                    bboxes_pred=torch.unsqueeze(torch.tensor(detection[3:]), 0),
+                    bboxes_gt=torch.unsqueeze(torch.tensor(gt[3:]), 0)
+                ).item()
 
                 if current_iou > best_iou:
                     best_iou = current_iou
@@ -199,8 +200,7 @@ def get_bboxes(loader: torch.utils.data.DataLoader, model: torch.nn.Module, iou_
                     all_true_boxes.append([image_idx_counter] + true_box)
 
             image_idx_counter += 1
-
-    model.train() 
+ 
     return all_predicted_boxes, all_true_boxes
 
 def nms(bboxes: Sequence[Sequence[float]], iou_threshold: float, threshold: float) -> Sequence[Sequence[float]]:
@@ -224,7 +224,7 @@ def nms(bboxes: Sequence[Sequence[float]], iou_threshold: float, threshold: floa
             box
             for box in filtered_bboxes
             if box[0] != chosen_box[0]  # Different class
-            or iou(torch.tensor(chosen_box[2:]), torch.tensor(box[2:])) < iou_threshold
+            or iou(torch.tensor(chosen_box[2:]), torch.tensor(box[2:])).item() < iou_threshold
         ]
 
     return bboxes_after_nms
@@ -251,7 +251,7 @@ def convert_cells(predictions: torch.Tensor, grid_size: int = 7) -> torch.Tensor
     best_bboxes_confidence = torch.max(bbox1_confidence, bbox2_confidence) 
 
     cell_indices_x = torch.arange(grid_size, device=predictions.device).repeat(batch_size, grid_size, 1).unsqueeze(-1)
-    cell_indices_y = torch.arange(grid_size, device=predictions.device).repeat(batch_size, grid_size, 1).permute(0, 2, 1, 3)
+    cell_indices_y = torch.arange(grid_size, device=predictions.device).repeat(batch_size, grid_size, 1).unsqueeze(-1).permute(0, 2, 1, 3)
 
     x_center = (1 / grid_size) * (best_bboxes_coords[..., :1] + cell_indices_x)
     y_center = (1 / grid_size) * (best_bboxes_coords[..., 1:2] + cell_indices_y)
