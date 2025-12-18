@@ -1,35 +1,31 @@
 #!/bin/bash
-
-#SBATCH --nodes=1                                      ## Node count
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=48                              ## Give the single process lots of CPU
-#SBATCH --mem=150G                                      ## RAM per node
-#SBATCH --time=72:00:00                                 ## Walltime
-#SBATCH --gres=gpu:8                                    ## Number of GPUs
-#SBATCH --exclude=neu[301,306]                          ## Exclude some nodes
-#SBATCH --job-name=train_yolov1                         ## Job Name
-#SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Stdout File
-#SBATCH --error=slurm_outputs/%x/err_log_%x_%j.err      ## Stderr File
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8            # 1 process per GPU
+#SBATCH --gpus-per-task=1              # each task gets 1 GPU
+#SBATCH --cpus-per-task=6              # 48 / 8 = 6 CPU cores per process
+#SBATCH --mem=150G
+#SBATCH --time=72:00:00
+#SBATCH --exclude=neu[301,306]
+#SBATCH --job-name=train_yolov1
+#SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out
+#SBATCH --error=slurm_outputs/%x/err_log_%x_%j.err
 
 set -euo pipefail
 
-# If not running under Slurm, auto-submit this script to avoid login-node execution.
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
-  echo "[INFO] Not inside a Slurm job. Submitting via sbatch to avoid running on the login node..."
+  echo "[INFO] Not inside a Slurm job. Submitting via sbatch..."
   exec sbatch "$0"
 fi
 
 cd /n/fs/jborz/projects/casi
 module load cudatoolkit/12.8
 
-# Use the correct Python executable from the virtual environment
-PYTHON_EXE="/n/fs/jborz/projects/casi/.venv/bin/python"
-
-# Add virtual environment bin to PATH so ninja and other tools are accessible
 export PATH="/n/fs/jborz/projects/casi/.venv/bin:$PATH"
 
-# SLURM-specific threading
-export SLURM_CPUS_PER_TASK=48
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-$PYTHON_EXE -m yolo_v1.trainer.trainer
+export NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+
+torchrun --standalone --nproc_per_node=8 -m yolo_v1.trainer.trainer
