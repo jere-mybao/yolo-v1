@@ -18,7 +18,7 @@ training:
   accumulation_steps: 16
   iou_threshold: 0.5
   threshold: 0.4
-  path_cpt_file: "checkpoints/yolo_v1_pascal_voc.pth"
+  path_cpt_file: "checkpoints/yolo_v1_pascal_voc.cpt"
 
 optimizer:
   learning_rate: 0.0001

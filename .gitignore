@@ -3,3 +3,4 @@ __pycache__/
 yolo_v1.egg-info/
 wandb/
 slurm_outputs/
+checkpoints/
